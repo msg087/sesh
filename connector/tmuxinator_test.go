@@ -37,9 +37,7 @@ func newConnectorWithMocks() (*RealConnector, *tmuxinator.MockTmuxinator, *tmux.
 func TestConnectToTmuxinator(t *testing.T) {
 	t.Run("propagates error from Start and does not attach", func(t *testing.T) {
 		c, mockTmuxinator, mockTmux := newConnectorWithMocks()
-		mockTmuxinator.EXPECT().
-			Start("sys").
-			Return("", errors.New("boom"))
+		mockTmuxinator.On("Start", "sys").Return("", errors.New("boom"))
 
 		connection := model.Connection{
 			Found:   true,
@@ -57,8 +55,8 @@ func TestConnectToTmuxinator(t *testing.T) {
 	t.Run("attaches via SwitchOrAttach after successful Start", func(t *testing.T) {
 		c, mockTmuxinator, mockTmux := newConnectorWithMocks()
 		opts := model.ConnectOpts{}
-		mockTmuxinator.EXPECT().Start("sys").Return("", nil)
-		mockTmux.EXPECT().SwitchOrAttach("sys", opts).Return("attaching to tmux session: sys", nil)
+		mockTmuxinator.On("Start", "sys").Return("", nil)
+		mockTmux.On("SwitchOrAttach", "sys", opts).Return("attaching to tmux session: sys", nil)
 
 		connection := model.Connection{
 			Found:   true,

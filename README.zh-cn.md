@@ -498,11 +498,72 @@ path = "~/c/dotfiles/.config/tmux"
 startup_command = "nvim tmux.conf"
 preview_command = "bat --color=always ~/c/dotfiles/.config/tmux/tmux.conf"
 windows = [ "git" ]
+skip_default_window = true
 
 [[window]]
 name = "git"
 startup_script = "git pull"
 ```
+
+### Panes
+
+可以把常用的 pane 布局定义成可复用配置，然后在 `default_session.panes` 或 `[[window]].panes` 中按名称引用。
+pane 也可以拥有子 pane，用 `panes = [...]` 按顺序创建。
+
+`split` 可以是 `h` 或 `v`。`size` 是可选的；如果设置了，`size_mode` 必须是 `lines` 或 `percent`。
+pane 按顺序创建：第一个 pane 作为窗口起点，后面的 pane 会依次切分当前活动 pane。
+
+```toml
+[[pane]]
+name = "editor"
+startup_script = "nvim ."
+
+[[pane]]
+name = "terminal"
+split = "v"
+size = 12
+size_mode = "lines"
+startup_script = "clear"
+
+[default_session]
+panes = [ "terminal" ]
+```
+
+#### 共享布局
+
+导入路径会相对于声明它的文件解析，所以常见做法是把共享 panes 放在一个文件里，把项目配置放在子目录里：
+
+```text
+~/.config/sesh/
+  panes.toml
+  configs/
+    jsr.toml
+    dotfiles.toml
+```
+
+项目配置可以这样导入共享 panes：
+
+```toml
+import = ["../panes.toml"]
+```
+
+这样你就可以复用常用 panes，同时在每个配置里保留特殊 panes。
+
+窗口路径也可以相对于 session 路径编写，这样项目配置更简洁：
+
+```toml
+[[session]]
+name = "JSR2"
+path = "~/code_wsl/jsr-netsuite"
+windows = ["api", "ns", "iac"]
+
+[[window]]
+name = "api"
+path = "./go_jsr_api"
+panes = ["editor", "mini_term"]
+```
+
+在这个例子里，`./go_jsr_api` 会解析成 `~/code_wsl/jsr-netsuite/go_jsr_api`。
 
 ### 列出配置
 

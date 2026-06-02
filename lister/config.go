@@ -26,15 +26,29 @@ func listConfig(l *RealLister) (model.SeshSessions, error) {
 				return model.SeshSessions{}, fmt.Errorf("startup_command and disable_start_command are mutually exclusive")
 			}
 
+			windowConfigs := make([]model.WindowConfig, 0, len(session.Windows))
+			for _, windowName := range session.Windows {
+				for _, windowConfig := range l.config.WindowConfigs {
+					if windowConfig.Name == windowName {
+						windowConfigs = append(windowConfigs, windowConfig)
+						break
+					}
+				}
+			}
+
 			directory[key] = model.SeshSession{
 				Src:                   "config",
 				Name:                  session.Name,
 				Path:                  path,
+				SourcePath:            session.SourcePath,
 				StartupCommand:        session.StartupCommand,
 				PreviewCommand:        session.PreviewCommand,
 				DisableStartupCommand: session.DisableStartCommand,
+				SkipDefaultWindow:     session.SkipDefaultWindow,
 				Tmuxinator:            session.Tmuxinator,
+				WindowConfigs:         windowConfigs,
 				WindowNames:           session.Windows,
+				PaneNames:             session.Panes,
 			}
 		}
 	}

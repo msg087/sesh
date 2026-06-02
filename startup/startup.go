@@ -2,6 +2,8 @@ package startup
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/joshmedeski/sesh/v2/home"
 	"github.com/joshmedeski/sesh/v2/lister"
@@ -35,27 +37,43 @@ func (s *RealStartup) Exec(session model.SeshSession) (string, error) {
 		defaultConfigStrategy,
 	}
 
-	windows := make(model.SeshWindowMap)
+	windows := make(map[string]model.SeshWindowMap)
 	for _, window := range s.config.WindowConfigs {
-		key := lister.ConfigKey(window.Name)
 		var path string = ""
 		var err error = nil
 		if window.Path != "" {
-			path, err = s.home.ExpandPath(window.Path)
-			if err != nil {
-				return "", fmt.Errorf("couldn't expand home: %q", err)
+			if strings.HasPrefix(window.Path, "~") {
+				path, err = s.home.ExpandPath(window.Path)
+				if err != nil {
+					return "", fmt.Errorf("couldn't expand home: %q", err)
+				}
+			} else {
+				path = window.Path
 			}
 		}
 
-		windows[key] = model.WindowConfig{
+		if windows[window.SourcePath] == nil {
+			windows[window.SourcePath] = make(model.SeshWindowMap)
+		}
+		windows[window.SourcePath][window.Name] = model.WindowConfig{
 			Name:          window.Name,
 			Path:          path,
 			StartupScript: window.StartupScript,
+			Panes:         window.Panes,
+			SourcePath:    window.SourcePath,
 		}
 	}
+	paneConfigs := make(map[string]map[string]model.PaneConfig)
+	for _, pane := range s.config.PaneConfigs {
+		if paneConfigs[pane.SourcePath] == nil {
+			paneConfigs[pane.SourcePath] = make(map[string]model.PaneConfig)
+		}
+		paneConfigs[pane.SourcePath][pane.Name] = pane
+	}
+	skipDefaultWindow := session.SkipDefaultWindow && len(session.WindowNames) > 0
 
-	for _, window := range session.WindowNames {
-		windowConfig, ok := windows[lister.ConfigKey(window)]
+	for i, window := range session.WindowNames {
+		windowConfig, ok := resolveWindowConfig(session.SourcePath, window, windows)
 		if !ok {
 			return "", fmt.Errorf("window %s is not defined in config", window)
 		}
@@ -65,17 +83,48 @@ func (s *RealStartup) Exec(session model.SeshSession) (string, error) {
 				return "", fmt.Errorf("couldn't expand home: %q", err)
 			}
 			windowConfig.Path = path
+		} else if strings.HasPrefix(windowConfig.Path, "~") {
+			path, err := s.home.ExpandPath(windowConfig.Path)
+			if err != nil {
+				return "", fmt.Errorf("couldn't expand home: %q", err)
+			}
+			windowConfig.Path = path
+		} else if !filepath.IsAbs(windowConfig.Path) {
+			windowConfig.Path = filepath.Join(session.Path, windowConfig.Path)
 		}
 
-		// create the new window
-		if ret, err := s.tmux.NewWindow(windowConfig.Path, windowConfig.Name); err != nil {
-			return ret, err
+		if !(session.SkipDefaultWindow && i == 0) {
+			if ret, err := s.tmux.NewWindow(windowConfig.Path, windowConfig.Name); err != nil {
+				return ret, err
+			}
 		}
-		if ret, err := s.tmux.SendKeys(session.Name, windowConfig.StartupScript); err != nil {
+
+		paneNames := windowConfig.Panes
+		if len(paneNames) == 0 {
+			paneNames = session.PaneNames
+		}
+		if len(paneNames) == 0 {
+			if windowConfig.StartupScript != "" {
+				if ret, err := s.tmux.SendKeys(session.Name, windowConfig.StartupScript); err != nil {
+					return ret, err
+				}
+			}
+			continue
+		}
+
+		if ret, err := s.buildWindowPanes(session, windowConfig, paneNames, paneConfigs); err != nil {
 			return ret, err
 		}
 	}
-	s.tmux.NextWindow()
+
+	if !skipDefaultWindow {
+		s.tmux.NextWindow()
+	}
+	if len(session.WindowNames) > 0 {
+		if _, err := s.tmux.SelectPane(0, 0); err != nil {
+			return "", err
+		}
+	}
 
 	for _, strategy := range strategies {
 		if command, err := strategy(s, session); err != nil {

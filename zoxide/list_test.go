@@ -12,7 +12,7 @@ func TestListResults(t *testing.T) {
 	t.Run("ListResults", func(t *testing.T) {
 		mockShell := new(shell.MockShell)
 		zoxide := &RealZoxide{shell: mockShell}
-		mockShell.EXPECT().ListCmd("zoxide", "query", "--list", "--score").Return([]string{
+		mockShell.On("ListCmd", "zoxide", "query", "--list", "--score").Return([]string{
 			"100.0 /Users/joshmedeski/Downloads",
 			" 82.0 /Users/joshmedeski/c/dotfiles/.config/fish",
 			" 73.5 /Users/joshmedeski/c/dotfiles/.config/tmux",

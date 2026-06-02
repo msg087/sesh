@@ -97,9 +97,55 @@
           "items": {
             "type": "string"
           }
+        },
+        "panes": {
+          "type": "array",
+          "description": "List of pane names to create in each window when no window-specific panes are set",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": false
+    },
+    "pane": {
+      "type": "array",
+      "description": "Reusable pane configurations",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the pane configuration"
+          },
+          "startup_script": {
+            "type": "string",
+            "description": "Script to run when the pane is created"
+          },
+          "split": {
+            "type": "string",
+            "enum": ["h", "v"],
+            "description": "Split direction for creating the pane"
+          },
+          "size": {
+            "type": "integer",
+            "description": "Optional split size for the pane"
+          },
+          "size_mode": {
+            "type": "string",
+            "enum": ["lines", "percent"],
+            "description": "Units used for the optional split size"
+          },
+          "panes": {
+            "type": "array",
+            "description": "Child panes to create from this pane in order",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
     },
     "session": {
       "type": "array",
@@ -118,6 +164,11 @@
           "disable_startup_command": {
             "type": "boolean",
             "description": "Disable the default startup command for this session",
+            "default": false
+          },
+          "skip_default_window": {
+            "type": "boolean",
+            "description": "Remove tmux's default first window when creating configured windows",
             "default": false
           },
           "startup_command": {
@@ -139,6 +190,13 @@
           "windows": {
             "type": "array",
             "description": "List of window names to create in this session",
+            "items": {
+              "type": "string"
+            }
+          },
+          "panes": {
+            "type": "array",
+            "description": "List of pane names to create in each window when no window-specific panes are set",
             "items": {
               "type": "string"
             }
@@ -164,6 +222,13 @@
           "path": {
             "type": "string",
             "description": "Working directory for the window"
+          },
+          "panes": {
+            "type": "array",
+            "description": "List of pane names to create in the window",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false
@@ -188,6 +253,11 @@
             "description": "Disable the default startup command for matching sessions",
             "default": false
           },
+          "skip_default_window": {
+            "type": "boolean",
+            "description": "Remove tmux's default first window when creating configured windows",
+            "default": false
+          },
           "preview_command": {
             "type": "string",
             "description": "Command used to generate the preview for matching sessions"
@@ -195,6 +265,13 @@
           "windows": {
             "type": "array",
             "description": "Window layout to use for matching sessions",
+            "items": {
+              "type": "string"
+            }
+          },
+          "panes": {
+            "type": "array",
+            "description": "Pane layout to use for matching sessions when window-specific panes are not set",
             "items": {
               "type": "string"
             }

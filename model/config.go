@@ -6,6 +6,7 @@ type (
 		StrictMode           bool                 `toml:"strict_mode"`
 		ImportPaths          []string             `toml:"import"`
 		DefaultSessionConfig DefaultSessionConfig `toml:"default_session"`
+		PaneConfigs          []PaneConfig         `toml:"pane"`
 		Blacklist            []string             `toml:"blacklist"`
 		SessionConfigs       []SessionConfig      `toml:"session"`
 		SortOrder            []string             `toml:"sort_order"`
@@ -28,19 +29,24 @@ type (
 		Tmuxinator     string   `toml:"tmuxinator"`
 		PreviewCommand string   `toml:"preview_command"`
 		Windows        []string `toml:"windows"`
+		Panes          []string `toml:"panes"`
 	}
 
 	SessionConfig struct {
 		Name                string `toml:"name"`
 		Path                string `toml:"path"`
 		DisableStartCommand bool   `toml:"disable_startup_command"`
+		SkipDefaultWindow   bool   `toml:"skip_default_window"`
+		SourcePath          string
 		DefaultSessionConfig
 	}
 
 	WindowConfig struct {
-		Name          string `toml:"name"`
-		StartupScript string `toml:"startup_script"`
-		Path          string `toml:"path"`
+		Name          string   `toml:"name"`
+		StartupScript string   `toml:"startup_script"`
+		Path          string   `toml:"path"`
+		Panes         []string `toml:"panes"`
+		SourcePath    string
 	}
 
 	TUIConfig struct {
@@ -54,7 +60,20 @@ type (
 		Pattern             string   `toml:"pattern"`
 		StartupCommand      string   `toml:"startup_command"`
 		DisableStartCommand bool     `toml:"disable_startup_command"`
+		SkipDefaultWindow   bool     `toml:"skip_default_window"`
 		PreviewCommand      string   `toml:"preview_command"`
 		Windows             []string `toml:"windows"`
+		Panes               []string `toml:"panes"`
+		SourcePath          string
+	}
+
+	PaneConfig struct {
+		Name          string   `toml:"name"`
+		StartupScript string   `toml:"startup_script"`
+		Split         string   `toml:"split"`
+		Size          int      `toml:"size"`
+		SizeMode      string   `toml:"size_mode"`
+		Panes         []string `toml:"panes"`
+		SourcePath    string
 	}
 )

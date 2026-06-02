@@ -11,7 +11,7 @@ func TestSelectWindow(t *testing.T) {
 	t.Run("calls tmux select-window", func(t *testing.T) {
 		mockShell := &shell.MockShell{}
 		tmux := &RealTmux{shell: mockShell}
-		mockShell.EXPECT().Cmd("tmux", "select-window", "-t", "editor").Return("", nil)
+		mockShell.On("Cmd", "tmux", "select-window", "-t", "editor").Return("", nil)
 		result, err := tmux.SelectWindow("editor")
 		assert.Nil(t, err)
 		assert.Equal(t, "", result)

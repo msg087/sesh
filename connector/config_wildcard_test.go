@@ -39,9 +39,10 @@ func TestConfigWildcardStrategy(t *testing.T) {
 
 	t.Run("should connect via wildcard when pattern matches a directory", func(t *testing.T) {
 		mockLister.On("FindConfigWildcard", "~/projects/myapp").Return(model.WildcardConfig{
-			Pattern:        "~/projects/*",
-			StartupCommand: "nvim",
-			Windows:        []string{"code", "server"},
+			Pattern:           "~/projects/*",
+			StartupCommand:    "nvim",
+			Windows:           []string{"code", "server"},
+			SkipDefaultWindow: true,
 		}, true)
 		mockHome.On("ExpandPath", "~/projects/myapp").Return("/Users/test/projects/myapp", nil)
 		mockDir.On("Dir", "/Users/test/projects/myapp").Return(true, "/Users/test/projects/myapp")
@@ -56,6 +57,7 @@ func TestConfigWildcardStrategy(t *testing.T) {
 		assert.Equal(t, "/Users/test/projects/myapp", connection.Session.Path)
 		assert.Equal(t, "config_wildcard", connection.Session.Src)
 		assert.Equal(t, []string{"code", "server"}, connection.Session.WindowNames)
+		assert.True(t, connection.Session.SkipDefaultWindow)
 	})
 
 	t.Run("should propagate DisableStartupCommand from wildcard config", func(t *testing.T) {

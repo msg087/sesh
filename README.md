@@ -504,6 +504,42 @@ sesh --config /path/to/custom/sesh.toml connect my-session
 
 The flag works with any subcommand. When specified, the file must exist or sesh will return an error. Without the flag, sesh uses the default config path.
 
+#### Shared Layouts
+
+Imports are resolved relative to the file that declares them, so a common pattern is to keep shared panes in one file and project configs in a subdirectory:
+
+```text
+~/.config/sesh/
+  panes.toml
+  configs/
+    jsr.toml
+    dotfiles.toml
+```
+
+Then a project config can import shared panes like this:
+
+```toml
+import = ["../panes.toml"]
+```
+
+This lets you reuse common panes while still defining special panes locally in each config.
+
+Window paths can be relative to the session path, so a project config can stay compact:
+
+```toml
+[[session]]
+name = "JSR2"
+path = "~/code_wsl/jsr-netsuite"
+windows = ["api", "ns", "iac"]
+
+[[window]]
+name = "api"
+path = "./go_jsr_api"
+panes = ["editor", "mini_term"]
+```
+
+In that example, `./go_jsr_api` resolves to `~/code_wsl/jsr-netsuite/go_jsr_api`.
+
 ### Custom Multiplexer (psmux)
 
 Sesh uses `tmux` as the default terminal multiplexer, but you can configure it to use any tmux-compatible multiplexer like [psmux](https://github.com/psmux/psmux) by setting `tmux_command` in your `sesh.toml`:
@@ -638,7 +674,7 @@ startup_command = "nvim -c ':Telescope find_files'"
 preview_command = "eza --all --git --icons --color=always {}"
 ```
 
-If you want to disable the default start command on a specific session, you can set `disable_startup_command = true`.
+If you want to disable the default start command on a specific session, you can set `disable_startup_command = true`. If you want tmux's default first window removed when creating configured windows, set `skip_default_window = true`.
 
 ### Session Configuration
 
@@ -694,10 +730,47 @@ path = "~/c/dotfiles/.config/tmux"
 startup_command = "nvim tmux.conf"
 preview_command = "bat --color=always ~/c/dotfiles/.config/tmux/tmux.conf"
 windows = [ "git" ]
+skip_default_window = true
 
 [[window]]
 name = "git"
 startup_script = "git pull"
+```
+
+### Panes
+
+Pane configs let you reuse common pane layouts across windows. Define panes once, then reference them by name in `default_session.panes` or `[[window]].panes`.
+Panes can also own child panes with `panes = [...]`, which are created in order from that pane.
+
+`split` can be `h` or `v`. `size` is optional. When set, `size_mode` must be `lines` or `percent`.
+Panes are created in order: the first pane starts the window, and each later pane splits the currently active pane.
+
+```toml
+[[pane]]
+name = "editor"
+startup_script = "nvim ."
+
+[[pane]]
+name = "terminal"
+split = "v"
+size = 12
+size_mode = "lines"
+startup_script = "clear"
+
+[[pane]]
+name = "side"
+split = "h"
+size = 30
+size_mode = "percent"
+startup_script = "htop"
+
+[default_session]
+panes = [ "terminal" ]
+
+[[window]]
+name = "api"
+path = "~/code_wsl/jsr-netsuite/go_jsr_api"
+panes = [ "editor", "terminal", "side" ]
 ```
 
 ### Wildcard Configuration
@@ -729,6 +802,7 @@ Available fields:
 | `startup_command` | Command to run on session creation (supports `{}` for path) |
 | `preview_command` | Command to run when previewing the session |
 | `disable_startup_command` | Set to `true` to suppress the startup command |
+| `skip_default_window` | Set to `true` to remove tmux's default first window when creating configured windows |
 | `windows` | Window layout to use (array of window names from `[[window]]` configs) |
 
 **Note:** Patterns use Go's `filepath.Match` syntax which supports `*` (any sequence), `?` (single character), and `[...]` (character classes). You can also use `/**` at the end of a pattern for recursive matching -- `~/projects/**` matches `~/projects/foo`, `~/projects/foo/bar`, and any deeper nesting. A single `*` only matches one level: `~/projects/*` matches `~/projects/foo` but not `~/projects/foo/bar`. Explicit `[[session]]` configs always take priority over wildcard matches. If multiple wildcards match, the first one in config order wins.

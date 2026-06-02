@@ -17,11 +17,25 @@ func tmuxStrategy(c *RealConnector, name string) (model.Connection, error) {
 
 func connectToTmux(c *RealConnector, connection model.Connection, opts model.ConnectOpts) (string, error) {
 	if connection.New {
-		c.tmux.NewSession(connection.Session.Name, connection.Session.Path)
+		initialWindow := ""
+		if connection.Session.SkipDefaultWindow && len(connection.Session.WindowNames) > 0 {
+			initialWindow = connection.Session.WindowNames[0]
+		}
+		width, height, err := c.tmux.ClientSize()
+		if err != nil {
+			return "", err
+		}
+		if _, err := c.tmux.NewDetachedSession(connection.Session.Name, connection.Session.Path, initialWindow, width, height); err != nil {
+			return "", err
+		}
 		if opts.Command != "" {
-			c.tmux.SendKeys(connection.Session.Name, opts.Command)
+			if _, err := c.tmux.SendKeys(connection.Session.Name, opts.Command); err != nil {
+				return "", err
+			}
 		} else {
-			c.startup.Exec(connection.Session)
+			if _, err := c.startup.Exec(connection.Session); err != nil {
+				return "", err
+			}
 		}
 	}
 	return c.tmux.SwitchOrAttach(connection.Session.Name, opts)

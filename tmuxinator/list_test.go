@@ -12,7 +12,7 @@ func TestListConfigs(t *testing.T) {
 	t.Run("List Tmuxinator Configs", func(t *testing.T) {
 		mockShell := new(shell.MockShell)
 		tmuxinator := &RealTmuxinator{shell: mockShell}
-		mockShell.EXPECT().ListCmd("tmuxinator", "list", "-n").Return([]string{
+		mockShell.On("ListCmd", "tmuxinator", "list", "-n").Return([]string{
 			"tmuxinator projects:",
 			"dotfiles",
 			"sesh",

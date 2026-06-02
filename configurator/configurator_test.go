@@ -42,7 +42,7 @@ func (o *testOs) ReadFile(name string) ([]byte, error) {
 			return data, nil
 		}
 	}
-	return nil, &os.PathError{Op: "open", Path: name, Err: os.ErrNotExist}
+	return os.ReadFile(name)
 }
 
 func (o *testOs) Getenv(key string) string {
@@ -203,7 +203,7 @@ func TestGetConfig_ImportPathWithEnvVar(t *testing.T) {
 			"CONFIGS": "/custom/dir",
 		},
 		files: map[string][]byte{
-			"/main/sesh.toml":            mainTOML,
+			"/main/sesh.toml":           mainTOML,
 			"/custom/dir/imported.toml": importData,
 		},
 	}
@@ -231,7 +231,7 @@ func TestGetConfig_ImportPathWithTilde(t *testing.T) {
 	mockOs := &testOs{
 		homeDir: "/home/testuser",
 		files: map[string][]byte{
-			"/main/sesh.toml":                             mainTOML,
+			"/main/sesh.toml":                      mainTOML,
 			"/home/testuser/imports/imported.toml": importData,
 		},
 	}
@@ -244,6 +244,65 @@ func TestGetConfig_ImportPathWithTilde(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, config.SessionConfigs, 1)
 	assert.Equal(t, "test-session", config.SessionConfigs[0].Name)
+}
+
+func TestGetConfig_ImportPathRelativeToConfigFile(t *testing.T) {
+	configPath := "/home/testuser/.config/sesh/configs/jsr.toml"
+	panesPath := "/home/testuser/.config/sesh/panes.toml"
+
+	mockOs := &testOs{
+		homeDir: "/home/testuser",
+		files: map[string][]byte{
+			configPath: []byte(`import = ["../panes.toml"]
+
+[[session]]
+name = "JSR"
+path = "~/code_wsl/jsr-netsuite"
+`),
+			panesPath: []byte(`[[pane]]
+name = "editor"
+startup_script = "nvim ."
+`),
+		},
+	}
+	mockPath := pathwrap.NewPath()
+	mockRuntime := &runtimewrap.MockRunTime{}
+
+	c := NewConfiguratorWithPath(mockOs, mockPath, mockRuntime, configPath)
+	config, err := c.GetConfig()
+
+	assert.NoError(t, err)
+	assert.Len(t, config.PaneConfigs, 1)
+	assert.Equal(t, panesPath, config.PaneConfigs[0].SourcePath)
+	assert.Len(t, config.SessionConfigs, 1)
+	assert.Equal(t, configPath, config.SessionConfigs[0].SourcePath)
+	assert.Equal(t, "JSR", config.SessionConfigs[0].Name)
+}
+
+func TestGetConfig_DefaultPathImportsRelativeToSeshDir(t *testing.T) {
+	configRoot := t.TempDir()
+	configPath := filepath.Join(configRoot, "sesh", "sesh.toml")
+	configDir := filepath.Dir(configPath)
+	configFile := filepath.Join(configDir, "configs", "jsr.toml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	require.NoError(t, os.WriteFile(configPath, []byte(`import = ["./configs/*.toml"]
+`), 0o644))
+	require.NoError(t, os.WriteFile(configFile, []byte(`[[session]]
+name = "JSR"
+path = "~/code_wsl/jsr-netsuite"
+`), 0o644))
+
+	mockOs := &testOs{homeDir: "/home/testuser"}
+	mockPath := pathwrap.NewPath()
+	mockRuntime := &runtimewrap.MockRunTime{}
+
+	c := NewConfiguratorWithPath(mockOs, mockPath, mockRuntime, configPath)
+	config, err := c.GetConfig()
+
+	assert.NoError(t, err)
+	assert.Len(t, config.SessionConfigs, 1)
+	assert.Equal(t, configFile, config.SessionConfigs[0].SourcePath)
+	assert.Equal(t, "JSR", config.SessionConfigs[0].Name)
 }
 
 func TestGetConfig_XDGConfigHomeNotSet(t *testing.T) {

@@ -3,6 +3,7 @@ package configurator
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/joshmedeski/sesh/v2/model"
@@ -29,6 +30,41 @@ type ConfigError struct {
 	HumanDetails string // Load the (DecodeError/StrictMissingError).String() into this
 }
 
+func setSourcePath(config *model.Config, sourcePath string) {
+	for i := range config.SessionConfigs {
+		config.SessionConfigs[i].SourcePath = sourcePath
+	}
+	for i := range config.WindowConfigs {
+		config.WindowConfigs[i].SourcePath = sourcePath
+	}
+	for i := range config.WildcardConfigs {
+		config.WildcardConfigs[i].SourcePath = sourcePath
+	}
+	for i := range config.PaneConfigs {
+		config.PaneConfigs[i].SourcePath = sourcePath
+	}
+}
+
+func (c *RealConfigurator) expandImportPaths(homeDir, baseDir, importPath string) ([]string, error) {
+	resolved, err := c.fullImportPath(homeDir, baseDir, importPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.ContainsAny(importPath, "*?[") {
+		matches, err := filepath.Glob(resolved)
+		if err != nil {
+			return nil, err
+		}
+		if len(matches) == 0 {
+			return nil, fmt.Errorf("couldn't resolve import glob %s: no matches", importPath)
+		}
+		return matches, nil
+	}
+
+	return []string{resolved}, nil
+}
+
 func (ce *ConfigError) Error() string {
 	return ce.Err // Return the error
 }
@@ -49,13 +85,21 @@ func (c *RealConfigurator) configFilePath(rootDir string) string {
 	return c.path.Join(rootDir, "sesh", "sesh.toml")
 }
 
-func (c *RealConfigurator) fullImportPath(homeDir, importPath string) (string, error) {
+func (c *RealConfigurator) fullImportPath(homeDir, baseDir, importPath string) (string, error) {
 	importPath = c.os.ExpandEnv(importPath)
-	if !strings.HasPrefix(importPath, "~") {
+	if strings.HasPrefix(importPath, "~") {
+		return c.path.Join(homeDir, importPath[1:]), nil
+	}
+
+	if filepath.IsAbs(importPath) {
 		return c.path.Abs(importPath)
 	}
 
-	return c.path.Join(homeDir, importPath[1:]), nil
+	if baseDir != "" {
+		return c.path.Abs(c.path.Join(baseDir, importPath))
+	}
+
+	return c.path.Abs(importPath)
 }
 
 func (c *RealConfigurator) parseConfigFile(file []byte) (model.Config, error) {
@@ -88,26 +132,35 @@ func (c *RealConfigurator) parseConfigFile(file []byte) (model.Config, error) {
 	return config, nil
 }
 
-func (c *RealConfigurator) resolveImports(config *model.Config, homeDir string) error {
+func (c *RealConfigurator) resolveImports(config *model.Config, homeDir string, baseDir string) error {
 	for _, importPath := range config.ImportPaths {
-		importFilePath, err := c.fullImportPath(homeDir, importPath)
+		importFilePaths, err := c.expandImportPaths(homeDir, baseDir, importPath)
 		if err != nil {
 			return fmt.Errorf("couldn't get full import path: %q", err)
 		}
+		for _, importFilePath := range importFilePaths {
+			importFile, err := c.os.ReadFile(importFilePath)
+			if err != nil {
+				return fmt.Errorf("couldn't read import file %s: %q", importFilePath, err)
+			}
 
-		importFile, err := c.os.ReadFile(importFilePath)
-		if err != nil {
-			return fmt.Errorf("couldn't read import file %s: %q", importFilePath, err)
+			importConfig := model.Config{}
+			if err := toml.Unmarshal(importFile, &importConfig); err != nil {
+				return fmt.Errorf("couldn't unmarshal import file %s: %q", importFilePath, err)
+			}
+			setSourcePath(&importConfig, importFilePath)
+
+			if len(importConfig.ImportPaths) > 0 {
+				if err := c.resolveImports(&importConfig, homeDir, filepath.Dir(importFilePath)); err != nil {
+					return err
+				}
+			}
+
+			config.SessionConfigs = append(config.SessionConfigs, importConfig.SessionConfigs...)
+			config.WindowConfigs = append(config.WindowConfigs, importConfig.WindowConfigs...)
+			config.WildcardConfigs = append(config.WildcardConfigs, importConfig.WildcardConfigs...)
+			config.PaneConfigs = append(config.PaneConfigs, importConfig.PaneConfigs...)
 		}
-
-		importConfig := model.Config{}
-		if err := toml.Unmarshal(importFile, &importConfig); err != nil {
-			return fmt.Errorf("couldn't unmarshal import file %s: %q", importFilePath, err)
-		}
-
-		config.SessionConfigs = append(config.SessionConfigs, importConfig.SessionConfigs...)
-		config.WindowConfigs = append(config.WindowConfigs, importConfig.WindowConfigs...)
-		config.WildcardConfigs = append(config.WildcardConfigs, importConfig.WildcardConfigs...)
 	}
 	return nil
 }
@@ -134,13 +187,14 @@ func (c *RealConfigurator) getConfigFileFromPath(configPath string) (model.Confi
 	if err != nil {
 		return model.Config{}, err
 	}
+	setSourcePath(&config, configPath)
 
 	userHomeDir, err := c.os.UserHomeDir()
 	if err != nil {
 		return config, fmt.Errorf("couldn't get user home dir: %q", err)
 	}
 
-	if err := c.resolveImports(&config, userHomeDir); err != nil {
+	if err := c.resolveImports(&config, userHomeDir, filepath.Dir(configPath)); err != nil {
 		return config, err
 	}
 
@@ -171,8 +225,9 @@ func (c *RealConfigurator) getConfigFileFromUserConfigDir() (model.Config, error
 	if err != nil {
 		return config, err
 	}
+	setSourcePath(&config, configFilePath)
 
-	if err := c.resolveImports(&config, userHomeDir); err != nil {
+	if err := c.resolveImports(&config, userHomeDir, filepath.Dir(configFilePath)); err != nil {
 		return config, err
 	}
 

@@ -33,8 +33,11 @@ func configWildcardStrategy(c *RealConnector, name string) (model.Connection, er
 			Src:                   "config_wildcard",
 			Name:                  nameFromPath,
 			Path:                  absPath,
+			SourcePath:            wc.SourcePath,
 			WindowNames:           wc.Windows,
+			PaneNames:             wc.Panes,
 			DisableStartupCommand: wc.DisableStartCommand,
+			SkipDefaultWindow:     wc.SkipDefaultWindow,
 		},
 	}, nil
 }

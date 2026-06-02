@@ -62,3 +62,46 @@ func TestEstablishTmuxConnection(t *testing.T) {
 		assert.Equal(t, "dotfiles", connection.Session.Name)
 	})
 }
+
+func TestConnectToTmuxCreatesSessionInSessionPath(t *testing.T) {
+	mockDir := new(dir.MockDir)
+	mockHome := new(home.MockHome)
+	mockLister := new(lister.MockLister)
+	mockNamer := new(namer.MockNamer)
+	mockStartup := new(startup.MockStartup)
+	mockTmux := new(tmux.MockTmux)
+	mockZoxide := new(zoxide.MockZoxide)
+	mockTmuxinator := new(tmuxinator.MockTmuxinator)
+
+	c := &RealConnector{
+		model.Config{},
+		mockDir,
+		mockHome,
+		mockLister,
+		mockNamer,
+		mockStartup,
+		mockTmux,
+		mockZoxide,
+		mockTmuxinator,
+	}
+
+	connection := model.Connection{
+		New: true,
+		Session: model.SeshSession{
+			Name:              "JSR",
+			Path:              "/repo/jsr-netsuite",
+			SkipDefaultWindow: true,
+			WindowNames:       []string{"api"},
+			WindowConfigs:     []model.WindowConfig{{Name: "api", Path: "./go_jsr_api"}},
+		},
+	}
+
+	mockTmux.On("ClientSize").Return(120, 40, nil)
+	mockTmux.On("NewDetachedSession", "JSR", "/repo/jsr-netsuite", "api", 120, 40).Return("", nil)
+	mockTmux.On("SendKeys", "JSR", "echo hi").Return("", nil)
+	mockTmux.On("SwitchOrAttach", "JSR", mock.Anything).Return("attaching", nil)
+
+	msg, err := connectToTmux(c, connection, model.ConnectOpts{Command: "echo hi"})
+	assert.NoError(t, err)
+	assert.Equal(t, "attaching", msg)
+}
