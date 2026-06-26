@@ -104,10 +104,14 @@ func (s *RealStartup) Exec(session model.SeshSession) (string, error) {
 			paneNames = session.PaneNames
 		}
 		if len(paneNames) == 0 {
+			targetPane := fmt.Sprintf("%s:%s.0", session.Name, windowConfig.Name)
 			if windowConfig.StartupScript != "" {
-				if ret, err := s.tmux.SendKeys(session.Name, windowConfig.StartupScript); err != nil {
+				if ret, err := s.tmux.SendKeys(targetPane, windowConfig.StartupScript); err != nil {
 					return ret, err
 				}
+			}
+			if _, err := s.tmux.SelectPaneTarget(targetPane); err != nil {
+				return "", err
 			}
 			continue
 		}
@@ -115,17 +119,15 @@ func (s *RealStartup) Exec(session model.SeshSession) (string, error) {
 		if ret, err := s.buildWindowPanes(session, windowConfig, paneNames, paneConfigs); err != nil {
 			return ret, err
 		}
+
+		if _, err := s.tmux.SelectPaneTarget(fmt.Sprintf("%s:%s.0", session.Name, windowConfig.Name)); err != nil {
+			return "", err
+		}
 	}
 
 	if !skipDefaultWindow {
 		s.tmux.NextWindow()
 	}
-	if len(session.WindowNames) > 0 {
-		if _, err := s.tmux.SelectPane(0, 0); err != nil {
-			return "", err
-		}
-	}
-
 	for _, strategy := range strategies {
 		if command, err := strategy(s, session); err != nil {
 			return "", fmt.Errorf("failed to determine startup command: %w", err)

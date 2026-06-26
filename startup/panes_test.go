@@ -54,8 +54,8 @@ func TestExecBuildsPaneLayout(t *testing.T) {
 	mockTmux.On("SplitWindow", "%2", "/repo/api", "v", 20, "percent").Return("%3", nil)
 	mockTmux.On("SendKeys", "%3", "echo child").Return("", nil)
 	mockTmux.On("SendKeys", "JSR:api.0", "cd \"/repo/api\" && nvim .").Return("", nil)
+	mockTmux.On("SelectPaneTarget", "JSR:api.0").Return("", nil)
 	mockTmux.On("NextWindow").Return("", nil)
-	mockTmux.On("SelectPane", 0, 0).Return("", nil)
 
 	command, err := s.Exec(session)
 	assert.NoError(t, err)

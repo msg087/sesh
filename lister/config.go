@@ -36,6 +36,11 @@ func listConfig(l *RealLister) (model.SeshSessions, error) {
 				}
 			}
 
+			paneNames := session.Panes
+			if len(paneNames) == 0 {
+				paneNames = l.config.DefaultSessionConfig.Panes
+			}
+
 			directory[key] = model.SeshSession{
 				Src:                   "config",
 				Name:                  session.Name,
@@ -48,7 +53,7 @@ func listConfig(l *RealLister) (model.SeshSessions, error) {
 				Tmuxinator:            session.Tmuxinator,
 				WindowConfigs:         windowConfigs,
 				WindowNames:           session.Windows,
-				PaneNames:             session.Panes,
+				PaneNames:             paneNames,
 			}
 		}
 	}

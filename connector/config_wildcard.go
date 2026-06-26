@@ -25,6 +25,11 @@ func configWildcardStrategy(c *RealConnector, name string) (model.Connection, er
 		return model.Connection{}, err
 	}
 
+	panes := wc.Panes
+	if len(panes) == 0 {
+		panes = c.config.DefaultSessionConfig.Panes
+	}
+
 	return model.Connection{
 		Found:       true,
 		New:         true,
@@ -35,7 +40,7 @@ func configWildcardStrategy(c *RealConnector, name string) (model.Connection, er
 			Path:                  absPath,
 			SourcePath:            wc.SourcePath,
 			WindowNames:           wc.Windows,
-			PaneNames:             wc.Panes,
+			PaneNames:             panes,
 			DisableStartupCommand: wc.DisableStartCommand,
 			SkipDefaultWindow:     wc.SkipDefaultWindow,
 		},

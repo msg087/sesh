@@ -65,6 +65,10 @@ func (t *RealTmux) SelectPane(windowIndex int, paneIndex int) (string, error) {
 	return fmt.Sprintf("selected pane %d in window %d", paneIndex, windowIndex), nil
 }
 
+func (t *RealTmux) SelectPaneTarget(targetPane string) (string, error) {
+	return t.shell.Cmd("tmux", "select-pane", "-t", targetPane)
+}
+
 func (t *RealTmux) GetCurrentSession() (string, error) {
 	return t.shell.Cmd("tmux", "display-message", "-p", "#{session_name}")
 }

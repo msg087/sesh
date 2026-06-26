@@ -19,6 +19,7 @@ func TestListConfigSessions(t *testing.T) {
 	mockTmux := new(tmux.MockTmux)
 	mockTmuxinator := new(tmuxinator.MockTmuxinator)
 	config := model.Config{
+		DefaultSessionConfig: model.DefaultSessionConfig{Panes: []string{"editor", "mini_term"}},
 		SessionConfigs: []model.SessionConfig{
 			{
 				Name: "sesh config",
@@ -46,5 +47,6 @@ func TestListConfigSessions(t *testing.T) {
 		sessions, exists := lister.FindConfigSession("sesh config")
 		assert.Equal(t, true, exists)
 		assert.Equal(t, "sesh config", sessions.Name)
+		assert.Equal(t, []string{"editor", "mini_term"}, sessions.PaneNames)
 	})
 }
